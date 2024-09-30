@@ -1,0 +1,76 @@
+@page "/chat"
+@using Microsoft.AspNetCore.SignalR.Client
+
+<h3>Chat Room</h3>
+
+@if (isConnected)
+{
+    <div>
+        <h4>Messages</h4>
+        <ul>
+            @foreach (var msg in messages)
+            {
+                <li>@msg</li>
+            }
+        </ul>
+
+        <input @bind="newMessage" placeholder="Type a message..." />
+        <button @onclick="SendMessage">Send</button>
+    </div>
+}
+else
+{
+    <p>Connecting to chat...</p>
+}
+
+@code {
+    private string newMessage;
+    private List<string> messages = new();
+    private HubConnection hubConnection;
+    private bool isConnected = false;
+    private string userName = "User123";  // Example user name
+
+    // Inject the NavigationManager service
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Use the injected NavigationManager to get the absolute URI
+        var absoluteUri = Navigation.ToAbsoluteUri("/Chat_Hub");
+
+        // Initialize the SignalR connection
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:5021/Chat_Hub")  // Use the absolute URL here
+            .Build();
+
+        // When a message is received, update the UI
+        hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+        {
+            var formattedMessage = $"{user}: {message}";
+            messages.Add(formattedMessage);
+            InvokeAsync(StateHasChanged);
+        });
+
+        // Start the SignalR connection
+        await hubConnection.StartAsync();
+        isConnected = true;
+    }
+
+    // Method to send a message to the SignalR Hub
+    private async Task SendMessage()
+    {
+        if (!string.IsNullOrEmpty(newMessage))
+        {
+            await hubConnection.SendAsync("SendMessageToRoom", userName, newMessage);  // Use your userName here
+            newMessage = string.Empty;  // Clear the input after sending
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

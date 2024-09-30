@@ -1,10 +1,28 @@
+using Vestelda.Server;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorsPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5095")  // Allow requests from the Blazor WebAssembly app's URL
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();  // SignalR requires credentials
+    });
+});
 
 var app = builder.Build();
+
+// Enable CORS
+app.UseCors("CorsPolicy");
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -13,6 +31,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 
 var summaries = new[]
 {
@@ -32,6 +51,8 @@ app.MapGet("/weatherforecast", () =>
     return forecast;
 })
 .WithName("GetWeatherForecast");
+
+app.MapHub<Chat_Hub>("/Chat_Hub");
 
 app.Run();
 
